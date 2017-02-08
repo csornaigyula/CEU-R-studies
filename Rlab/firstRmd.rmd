@@ -1,0 +1,104 @@
+---
+title: "CEU R Lab"
+author: "dr. CSORNAI, Gyula"
+date: "February 5, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+##set up global options
+##this is master config whatever we set up
+library(knitr)
+opts_chunk$set(
+  echo=FALSE,
+  warning=FALSE
+)
+```
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be *generated* that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+mean(cars$speed)
+table(mtcars$am)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r, echo=FALSE, error=TRUE}
+n <- 100
+rnd <- runif(n)
+histogram(rnd)
+```
+
+We don't have a list
+* 1st
+* 2nd
+* end
+
+We have a list
+
+* 1st
+* 2nd
+* end
+
+This
+is 
+one 
+line
+
+This is
+
+two lines
+
+## Header
+### Sub-header
+
+We have loaded a dataset with `r nrow(mtcars)` observations, 
+with `r length(unique(mtcars$am))` types of transmissions
+```{r, echo=FALSE}
+library(pander)
+pander(table(mtcars$am))
+```
+
+```{r, echo=FALSE, warning=FALSE, error=TRUE}
+library(pander)
+pander(summary(cars))
+
+fit <- lm(mpg ~wt,mtcars)
+pander(fit)
+
+pander(head(mtcars))
+
+pander(head(mtcars), emphasize.strong.cells(3))
+```
+
+##DYNAMIC THINGS COME FROM HERE - SHINY
+
+```{r}
+library(shiny)
+inputPanel(
+  sliderInput('n', label='Sample size',
+              min=1, max=1000, value=100,
+              step = 10)
+  )
+renderPlot(
+  hist(runif(as.numeric(input$n)))
+)
+```
