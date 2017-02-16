@@ -1,0 +1,288 @@
+---
+title: "RTrack Assignment"
+author: "CSORNAI, Gyula"
+date: "February 16, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## SUMMARY
+1. This assignment targets to analyze the flights dataset from the nycflights13 data package
+2. First steps will explore the data and get rid of unusable particles
+
+
+
+```{r check data, echo=FALSE, include=FALSE}
+rm(list=ls())
+#data(package = 'nycflights13')
+library(nycflights13)
+library(pander)
+str(flights)
+dim(flights)
+
+```
+
+## Exploratory data analysis
+
+
+### Summary statistics
+
+
+```{r sstats, echo=FALSE}
+pander(summary(flights))
+```
+### Elininating NA values
+
+
+```{r nahunt, echo=FALSE, include=FALSE}
+#exploring why we have NAs 
+
+#in departure delay
+dim(subset(flights, flights$dep_delay == 0))
+#we do have 0 values, so NA is unknown
+dim(subset(flights, flights$arr_delay == 0))
+
+
+#we will lose 9430 rows with dropping NAs, which in the case of this
+#dataset size is an acceptable loss
+lostRows <-dim(flights)[1] - dim(subset
+    (flights, !is.na(flights$dep_time) &
+             !is.na(flights$dep_delay) &
+             !is.na(flights$arr_delay) &
+             !is.na(flights$dep_time) &
+             !is.na(flights$arr_time)
+           )
+)[1]
+
+df <- subset (flights, !is.na(flights$dep_time) &
+    !is.na(flights$dep_delay) &
+    !is.na(flights$arr_delay) &
+    !is.na(flights$dep_time) &
+    !is.na(flights$arr_time))
+```
+
+After dropping rows with NA value in dep_time, arr_time, dep_delay and arr_delay features, we are left with `r dim(flights)[1]-lostRows ` clean and usable rows.
+
+### Feature engineering
+
+```{r elimnonpred, echo=FALSE, include=FALSE}
+head(df$tailnum)
+head(df$carrier)
+head(df$origin)
+head(df$dest)
+df$tailnumf <- as.factor(df$tailnum)
+df$carrierf <- as.factor(df$carrier)
+df$originf <- as.factor(df$origin)
+df$destf <- as.factor(df$dest)
+#it is highly possible, that tailnum will not be used 
+#effectively for prediction, as the factor count is too high
+#dropping original character factors
+dfm <- df
+dfm$tailnum <- NULL
+dfm$carrier <- NULL
+dfm$dest <- NULL
+dfm$origin <- NULL
+dfm$tailnumf <- NULL
+```
+
+
+
+The year is `r mean(dfm$year)` for all rows, so it can be dropped from the dataset. The weekday will be transformed from the time_hour. Hour and minute variables are fundamentally the same as dep_time, which is the original departure time (see above), so for modeling it also can be dropped.
+
+From the other side dep_time feature's hour and minute parameters need to be extracted, which will be done by the metric functions of R.
+
+The sched_arr_time and arr_time will be processed similarly.
+
+```{r datetrf, echo=FALSE, include=FALSE}
+#year will not have any predictive power, as all data is from 2013
+summary(dfm$year)
+dfm$year <- NULL
+
+time_format <- "%Y-%m-%d %H:%M:%S"
+dfm$weekday <- as.factor(format(strptime(dfm$time_hour, format=time_format),"%A"))
+
+summary(subset(dfm, dfm$dep_time > 959))
+summary(subset(dfm, dfm$dep_time < 959))
+dfm$deph <- dfm$dep_time %/%100
+dfm$depm <- dfm$dep_time%%100
+
+dfm$dep_time <- NULL
+dfm$time_hour <- NULL
+
+dfm$sch_ah <- dfm$sched_arr_time%/%100
+dfm$sch_am <- dfm$sched_arr_time%%100
+dfm$sched_arr_time <- NULL
+#hour and minute already has this info
+dfm$sched_dep_time <- NULL
+dfm$arrh <- dfm$arr_time%/%100
+dfm$arrm <- dfm$arr_time%%100
+dfm$arr_time <- NULL
+
+#dep_delay
+summary(dfm$dep_delay)
+
+#dfm$schdeph <- dfm$sched_dep_time %/%100
+#summary(dfm$hour - dfm$schdeph)
+
+
+```
+
+
+
+### Data visualization
+
+#### Distribution of delays on arrival side
+
+The following chart shows the histogram of arrival delays with 50 bins. Later on this will be the predicted variable. The distribution is heavily skewed, most of the flights arrive with less than 15m delay, or even arrive in time.
+```{r sumhist1, echo=FALSE, warning=FALSE}
+pander(summary(dfm$arr_delay))
+```
+
+
+The following chart shows the numbers on a logarythmic Y-axis.
+
+
+```{r histogram1, echo=FALSE, warning=FALSE}
+library(ggplot2)
+ggplot(dfm)+aes(x=arr_delay)+
+  geom_histogram(bins=50, fill='indianred')+
+  labs(
+    x="Distribution of arrival delay minute values - bins=50",
+    y="Count on logarythmic scale",
+    title="Histogram of arrival delays"
+  )+
+  theme_bw()
+
+```
+
+#### Distribution of delays on departure side
+
+The following chart shows the histogram of arrival delays with 50 bins. Later on this will be one of the predictor variable. 
+
+```{r histogram2A, echo=FALSE, warning=FALSE}
+ggplot(dfm)+aes(x=dep_delay)+
+  geom_histogram(bins=50, fill='dodgerblue3')+
+  labs(
+    x="Distribution of departure delay minute values - bins=50",
+    y="Count on logarythmic scale",
+    title="Histogram of departure delays"
+  )+
+  theme_bw()
+
+```
+
+
+The departure delays show a much more exotic distirbution, due to the fact, that there are a lot of flight departing on time, the mean is interestingly bigger than the 3rd quantile.
+
+
+```{r summhist, echo=FALSE, warning=FALSE}
+pander(summary(dfm$dep_delay))
+```
+
+```{r histogram2B, echo=FALSE, warning=FALSE}
+ggplot(dfm)+aes(x=dep_delay)+
+  geom_histogram(bins=50, fill='dodgerblue3')+
+  labs(
+    x="Distribution of departure delay minute values - bins=50",
+    y="Count on logarythmic scale",
+    title="Histogram of departure delays"
+  )+
+  scale_y_log10()+
+  theme_bw()
+
+```
+
+#### Dependency between air time and arrival side delay on different day of the week
+
+The following chart shows the dependency between the air times and the arrival side delays of different flights. The color code of the point reflects the day when the flight has travelled. As the chart show, there is no dependency between air time and arrival side delay, from the other side Monday flights tend to arrive earlier. 
+
+```{r smoothmod, echo=FALSE}
+mypalette <- 'Dark2'
+ggplot(dfm)+aes(x=dfm$air_time, y=dfm$arr_delay, col=weekday)+
+  geom_point()+
+  labs(
+    x="Air time",
+    y="Delays on the departure side",
+    title="Dependency between air time and delay on departure side - given weekdays"
+  )+
+  geom_smooth(method="lm", col='black')+
+  scale_fill_brewer(mypalette)+
+  theme_bw()
+```
+
+#### Heatmap of the arrival delays
+
+The following chart shows the heatmap of the arrival delays broken down to hour of the day and day of the week.
+
+The following code included shows that I have created 50 categories initially, to show equal categories in the arrival delay range. However due to the structure of the data, it has thrown error, that it cannot create 50 equal bins and defaulted back to 11.
+
+As I personally cannot use blue heatmap well, I have switched to spectral palette.
+
+```{r heatmap, echo=TRUE}
+#ncolor <- 50
+ncolor <- 11
+cuts<- split(dfm$arr_delay, cut_number(dfm$arr_delay, ncolor))
+pander(str(cuts))
+for (i in 1:ncolor) {
+  dfm$adcat[sapply(cuts[i], is.element, el = dfm$arr_delay) ]<-i
+}
+
+ggplot(dfm) + geom_tile(aes(x=hour, y=weekday, fill=adcat)) + 
+  labs(x="Hour of the day", y="Day of the week",
+       title="Flight delay heatmap")+
+  scale_fill_distiller(palette = "Spectral")+
+  theme_bw()
+
+```
+
+## Modeling
+
+In the next section I am going to use knn modeling with 2 different parameters: k=2 and k=10
+
+### Some more feature engineering
+
+I get rid of the categorization variable, which I created only for visualization, it does not enrich the data with information.
+
+I also transform non-numeric features to numeric.
+
+Finally I create a binary outcome variable of arrival side delay, which shows whether or not the flight was delayed by more than 15 minutes on the arrival side. 
+
+```{r cleanmod,echo=FALSE}
+dfm$adcatf<- NULL
+dfm$adcat <- NULL
+dfm$isMT15 <- ifelse(dfm$arr_delay > 15,1,0)
+dfm$arr_delay <- NULL
+
+dfm$carrierfN <- as.numeric(dfm$carrierf)
+dfm$originfN <- as.numeric(dfm$originf)
+dfm$destfN <- as.numeric(dfm$destf)
+dfm$wdN <- as.numeric(dfm$weekday)
+dfm$carrierf <-NULL
+dfm$originf <- NULL
+dfm$destf <- NULL
+dfm$weekday <- NULL
+pander(summary(dfm))
+```
+
+Now the KNN, with N=2
+```{r knn2, echo=FALSE}
+dfm$rnd <-runif(dim(dfm[1])) 
+dfm <- dfm[order(dfm$rnd),]
+train <- dfm[0:round((dim(dfm[,1]))*0.7),]
+test <- dfm[(round((dim(dfm[,1]))*0.7)+1):(dim(dfm)[1]),]
+dfm$rnd <-NULL
+#summary(train)
+library(class)
+fit2 <- knn(train[,1:18], test[,1:18], train$isMT15, k = 2)
+pander(table(test$isMT15,fit2))
+```
+
+Now the KNN, with N=10
+
+```{r knn10, echo=FALSE}
+fit10 <- knn(train[,1:18], test[,1:18], train$isMT15, k = 10)
+pander(table(test$isMT15,fit10))
+```
