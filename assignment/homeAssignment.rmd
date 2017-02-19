@@ -1,7 +1,7 @@
 ---
 title: "RTrack Assignment"
 author: "CSORNAI, Gyula"
-date: "February 16, 2017"
+date: "February 19, 2017"
 output: pdf_document
 ---
 
@@ -9,9 +9,14 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## SUMMARY
+## Report summary
 1. This assignment targets to analyze the flights dataset from the nycflights13 data package
-2. First steps will explore the data and get rid of unusable particles
+2. First steps explore the data and get rid of unusable particles
+3. After this feature engineering will happen, in which
+  3.1 Some variebles will be transformed to modeling format
+  3.2 Some variables will be created to help visualization
+  3.3 Certain dependencies will be visualized
+4. Finally KNN modeling method will be used for prediction purposes
 
 
 
@@ -34,6 +39,7 @@ dim(flights)
 ```{r sstats, echo=FALSE}
 pander(summary(flights))
 ```
+
 ### Elininating NA values
 
 
@@ -225,7 +231,7 @@ As I personally cannot use blue heatmap well, I have switched to spectral palett
 #ncolor <- 50
 ncolor <- 11
 cuts<- split(dfm$arr_delay, cut_number(dfm$arr_delay, ncolor))
-pander(str(cuts))
+#pander(str(cuts)) looks awful
 for (i in 1:ncolor) {
   dfm$adcat[sapply(cuts[i], is.element, el = dfm$arr_delay) ]<-i
 }
@@ -267,22 +273,49 @@ dfm$weekday <- NULL
 pander(summary(dfm))
 ```
 
-Now the KNN, with N=2
+### 2-Nearest neighbors model results
+
+The following confusion table shows the the true negative, false negative, false positive, true positive predictions of the model using the 2 nearest neighbor based classification model. 
+
 ```{r knn2, echo=FALSE}
 dfm$rnd <-runif(dim(dfm[1])) 
 dfm <- dfm[order(dfm$rnd),]
-train <- dfm[0:round((dim(dfm[,1]))*0.7),]
-test <- dfm[(round((dim(dfm[,1]))*0.7)+1):(dim(dfm)[1]),]
+train <- dfm[0:round((dim(dfm)[1])*0.7),]
+test <- dfm[(round((dim(dfm)[1])*0.7)+1):(dim(dfm)[1]),]
 dfm$rnd <-NULL
 #summary(train)
 library(class)
 fit2 <- knn(train[,1:18], test[,1:18], train$isMT15, k = 2)
 pander(table(test$isMT15,fit2))
+
 ```
 
-Now the KNN, with N=10
+### 10-Nearest neighbor model results
+
+The following confusion table shows the the true negative, false negative, false positive, true positive predictions of the model using the 10 nearest neighbor based classification model. 
 
 ```{r knn10, echo=FALSE}
 fit10 <- knn(train[,1:18], test[,1:18], train$isMT15, k = 10)
 pander(table(test$isMT15,fit10))
+
 ```
+
+## Summarizing results
+
+```{r summry, echo=FALSE, warning=FALSE}
+total <- dim(test)[1]
+good2 <- table(test$isMT15,fit10)[1,1] + table(test$isMT15,fit10)[2,2]
+good1 <- table(test$isMT15,fit2)[1,1] + table(test$isMT15,fit2)[2,2]
+
+
+```
+
+1. 2-NN model has found the good result in **`r (good1)/total *100 `%** of the cases in total
+2. 10-NN model has found the good result in **`r (good2)/total *100 `%** of the cases in total
+3. 2-NN has identified
+  i) less true negatives 
+  ii) more true positives
+  iii) more false negative
+  iv) less false positive
+  
+compared to 10-NN.

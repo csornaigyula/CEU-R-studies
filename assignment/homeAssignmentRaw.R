@@ -124,7 +124,7 @@ ggplot(dfm)+aes(x=dfm$air_time, y=dfm$arr_delay, col=weekday)+
 
 
 summary(dfm$arr_delay)
-ncolor <- 50
+ncolor <- 8
 cuts<- split(dfm$arr_delay, cut_number(dfm$arr_delay, ncolor))
 str(cuts)
 for (i in 1:ncolor) {
@@ -157,7 +157,7 @@ dfm$arr_delay <- NULL
 dfm$rnd <-runif(dim(dfm[1])) 
 dfm <- dfm[order(dfm$rnd),]
 train <- dfm[0:round((dim(dfm[,1]))*0.7),]
-test <- dfm[(round((dim(dfm[,1]))*0.7)+1):(dim(dfm)[,1]),]
+test <- dfm[(round((dim(dfm[,1]))*0.7)+1):(dim(dfm)[1]),]
 dfm$rnd <-NULL
 #summary(train)
 library(class)
@@ -168,4 +168,9 @@ pander(table(test$isMT15,fit2))
 fit10 <- knn(train[,1:18], test[,1:18], train$isMT15, k = 10)
 pander(table(test$isMT15,fit10))
 
+?knn
 
+table(test$isMT15,fit10)[1,1]
+
+str(test)
+str(fit10)
