@@ -1,8 +1,10 @@
 ---
 title: "RTrack Assignment"
 author: "CSORNAI, Gyula"
-date: "February 19, 2017"
-output: pdf_document
+date: "February 25, 2017"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -70,7 +72,7 @@ df <- subset (flights, !is.na(flights$dep_time) &
     !is.na(flights$arr_time))
 ```
 
-After dropping rows with NA value in dep_time, arr_time, dep_delay and arr_delay features, we are left with `r dim(flights)[1]-lostRows ` clean and usable rows.
+After dropping rows with NA value in dep_time, arr_time, dep_delay and arr_delay features, we are left with `r nrow(df)-lostRows ` clean and usable rows.
 
 ### Feature engineering
 
@@ -205,17 +207,26 @@ ggplot(dfm)+aes(x=dep_delay)+
 
 The following chart shows the dependency between the air times and the arrival side delays of different flights. The color code of the point reflects the day when the flight has travelled. As the chart show, there is no dependency between air time and arrival side delay, from the other side Monday flights tend to arrive earlier. 
 
-```{r smoothmod, echo=FALSE}
-mypalette <- 'Dark2'
-ggplot(dfm)+aes(x=dfm$air_time, y=dfm$arr_delay, col=weekday)+
-  geom_point()+
+
+It gives the following insights:
+
+* The delay on the arrival side is less dependent on the air time, than on the day of week - on some days, we need to expect more delays in general (i.e. Tuesdays and Sundays)
+* Long flights have a much better expected duration than medium duration flights
+* The flights under approximately 150 minutes air time will typically not be delayed (grey area shows a huge mass of data)
+
+```{r smoothmod, echo=FALSE, warning=FALSE}
+ggplot(dfm)+aes(x=dfm$air_time, y=dfm$arr_delay)+
+geom_bin2d(binwidth=c(20,50))+
   labs(
     x="Air time",
     y="Delays on the departure side",
-    title="Dependency between air time and delay on departure side - given weekdays"
+    title="Dependency between air time and delay on departure side
+    - faceted to weekdays",
+    caption="The facet needs to be interpreted as a heatmap with high numbers in the red range and lower numbers in the violet range.
+    Grey areas need to be interpreted as higher numbers than 2000."
   )+
-  geom_smooth(method="lm", col='black')+
-  scale_fill_brewer(mypalette)+
+  scale_fill_gradientn(limits=c(2000,0), breaks=seq(0, 1500, by=500), colours=rainbow(4))+
+  facet_wrap(~weekday) +
   theme_bw()
 ```
 
@@ -227,11 +238,9 @@ The following code included shows that I have created 50 categories initially, t
 
 As I personally cannot use blue heatmap well, I have switched to spectral palette.
 
-```{r heatmap, echo=TRUE}
-#ncolor <- 50
+```{r heatmap, echo=TRUE, warning=FALSE}
 ncolor <- 11
 cuts<- split(dfm$arr_delay, cut_number(dfm$arr_delay, ncolor))
-#pander(str(cuts)) looks awful
 for (i in 1:ncolor) {
   dfm$adcat[sapply(cuts[i], is.element, el = dfm$arr_delay) ]<-i
 }
